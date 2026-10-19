@@ -1,17 +1,22 @@
+
 %option noyywrap nounput noinput
 
 %{
-#include <iostream>
+#include "parser.hpp"
+
+#include <cerrno>
+#include <cstdlib>
 #include <string>
 
-/*
- * Lexer for our small C-like language.
- * Parser token constructors will be connected after
- * confirming the shared Bison C++ interface.
- */
+static yy::location loc;
 
-static int current_line = 1;
-static int current_column = 1;
+#define YY_DECL yy::parser::symbol_type yylex()
+
+/* Begin each token at the previous token's end,
+   then advance the end position by the matched text. */
+#define YY_USER_ACTION \
+    loc.step();        \
+    loc.columns(yyleng);
 %}
 
 DIGIT       [0-9]
@@ -21,49 +26,46 @@ INTEGER     {DIGIT}+
 
 %%
 
-"int"           { std::cout << "KEYWORD: int\n"; }
-"print"         { std::cout << "KEYWORD: print\n"; }
+"int"           { return yy::parser::make_INT(loc); }
+"print"         { return yy::parser::make_PRINT(loc); }
 
 {IDENTIFIER}    {
-                    std::cout << "IDENTIFIER: " << yytext << '\n';
+                    return yy::parser::make_IDENTIFIER(
+                        std::string(yytext, yyleng), loc
+                    );
                 }
 
 {INTEGER}       {
-                    std::cout << "NUMBER: " << yytext << '\n';
+                    errno = 0;
+                    char* end = nullptr;
+                    long value = std::strtol(yytext, &end, 10);
+
+                    if (errno == ERANGE || end != yytext + yyleng) {
+                        return yy::parser::make_INVALID(loc);
+                    }
+
+                    return yy::parser::make_NUMBER(value, loc);
                 }
 
-"+"             { std::cout << "PLUS: +\n"; }
-"-"             { std::cout << "MINUS: -\n"; }
-"*"             { std::cout << "MULTIPLY: *\n"; }
-"/"             { std::cout << "DIVIDE: /\n"; }
-"="             { std::cout << "ASSIGN: =\n"; }
+"+"             { return yy::parser::make_PLUS(loc); }
+"-"             { return yy::parser::make_MINUS(loc); }
+"*"             { return yy::parser::make_STAR(loc); }
+"/"             { return yy::parser::make_SLASH(loc); }
+"="             { return yy::parser::make_ASSIGN(loc); }
 
-"("             { std::cout << "LPAREN: (\n"; }
-")"             { std::cout << "RPAREN: )\n"; }
-";"             { std::cout << "SEMICOLON: ;\n"; }
+"("             { return yy::parser::make_LPAREN(loc); }
+")"             { return yy::parser::make_RPAREN(loc); }
+";"             { return yy::parser::make_SEMICOLON(loc); }
 
-[ \t\r]+        {
-                    current_column += yyleng;
-                }
+[ \t\r]+        { /* Ignore whitespace; location already advanced. */ }
 
 \n              {
-                    ++current_line;
-                    current_column = 1;
+                    loc.lines(yyleng);
+                    loc.step();
                 }
 
-.               {
-                    std::cerr
-                        << "Lexical error at line " << current_line
-                        << ", column " << current_column
-                        << ": invalid character '" << yytext[0]
-                        << "'\n";
+.               { return yy::parser::make_INVALID(loc); }
 
-                    ++current_column;
-                }
+<<EOF>>         { return yy::parser::make_YYEOF(loc); }
 
 %%
-
-int main() {
-    yylex();
-    return 0;
-}

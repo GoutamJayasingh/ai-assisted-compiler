@@ -1,7 +1,5 @@
-
 %skeleton "lalr1.cc"
 %require "3.8"
-
 %defines
 %define api.namespace {yy}
 %define api.parser.class {parser}
@@ -28,7 +26,6 @@
             static_cast<int>(loc.begin.column)
         };
     }
-
     yy::parser::symbol_type yylex();
 }
 
@@ -37,10 +34,8 @@
 
 %token INT "int"
 %token PRINT "print"
-
 %token <std::string> IDENTIFIER "identifier"
 %token <long> NUMBER "integer"
-
 %token PLUS "+"
 %token MINUS "-"
 %token STAR "*"
@@ -49,7 +44,6 @@
 %token LPAREN "("
 %token RPAREN ")"
 %token SEMICOLON ";"
-
 %token INVALID "invalid token"
 
 %type <compiler::ExprPtr> expression term factor
@@ -64,128 +58,75 @@
 
 input:
       %empty
-    | input statement
-      {
-          if ($2) {
-              program.statements.push_back(std::move($2));
-          }
+    | input statement {
+          if ($2) program.statements.push_back(std::move($2));
       }
-    | input error SEMICOLON
-      {
-          diagnostics.push_back({
-              "syntax",
-              static_cast<int>(@2.begin.line),
-              static_cast<int>(@2.begin.column),
-              "Invalid statement; skipped to the next semicolon."
-          });
+    | input error SEMICOLON {
           yyerrok;
       }
     ;
 
 statement:
-      declaration
-      {
-          $$ = std::move($1);
-      }
-    | assignment
-      {
-          $$ = std::move($1);
-      }
-    | print_statement
-      {
-          $$ = std::move($1);
-      }
+      declaration { $$ = std::move($1); }
+    | assignment { $$ = std::move($1); }
+    | print_statement { $$ = std::move($1); }
     ;
 
 declaration:
-      INT IDENTIFIER ASSIGN expression SEMICOLON
-      {
+      INT IDENTIFIER ASSIGN expression SEMICOLON {
           $$ = std::make_unique<compiler::DeclarationStmt>(
-              std::move($2),
-              std::move($4),
-              toSourceLocation(@1)
-          );
+              std::move($2), std::move($4), toSourceLocation(@1));
       }
     ;
 
 assignment:
-      IDENTIFIER ASSIGN expression SEMICOLON
-      {
+      IDENTIFIER ASSIGN expression SEMICOLON {
           $$ = std::make_unique<compiler::AssignmentStmt>(
-              std::move($1),
-              std::move($3),
-              toSourceLocation(@1)
-          );
+              std::move($1), std::move($3), toSourceLocation(@1));
       }
     ;
 
 print_statement:
-      PRINT LPAREN expression RPAREN SEMICOLON
-      {
+      PRINT LPAREN expression RPAREN SEMICOLON {
           $$ = std::make_unique<compiler::PrintStmt>(
-              std::move($3),
-              toSourceLocation(@1)
-          );
+              std::move($3), toSourceLocation(@1));
       }
     ;
 
 expression:
-      expression PLUS term
-      {
+      expression PLUS term {
           $$ = std::make_unique<compiler::BinaryExpr>(
-              '+', std::move($1), std::move($3),
-              toSourceLocation(@2)
-          );
+              '+', std::move($1), std::move($3), toSourceLocation(@2));
       }
-    | expression MINUS term
-      {
+    | expression MINUS term {
           $$ = std::make_unique<compiler::BinaryExpr>(
-              '-', std::move($1), std::move($3),
-              toSourceLocation(@2)
-          );
+              '-', std::move($1), std::move($3), toSourceLocation(@2));
       }
-    | term
-      {
-          $$ = std::move($1);
-      }
+    | term { $$ = std::move($1); }
     ;
 
 term:
-      term STAR factor
-      {
+      term STAR factor {
           $$ = std::make_unique<compiler::BinaryExpr>(
-              '*', std::move($1), std::move($3),
-              toSourceLocation(@2)
-          );
+              '*', std::move($1), std::move($3), toSourceLocation(@2));
       }
-    | term SLASH factor
-      {
+    | term SLASH factor {
           $$ = std::make_unique<compiler::BinaryExpr>(
-              '/', std::move($1), std::move($3),
-              toSourceLocation(@2)
-          );
+              '/', std::move($1), std::move($3), toSourceLocation(@2));
       }
-    | factor
-      {
-          $$ = std::move($1);
-      }
+    | factor { $$ = std::move($1); }
     ;
 
 factor:
-      NUMBER
-      {
+      NUMBER {
           $$ = std::make_unique<compiler::NumberExpr>(
-              $1, toSourceLocation(@1)
-          );
+              $1, toSourceLocation(@1));
       }
-    | IDENTIFIER
-      {
+    | IDENTIFIER {
           $$ = std::make_unique<compiler::IdentifierExpr>(
-              std::move($1), toSourceLocation(@1)
-          );
+              std::move($1), toSourceLocation(@1));
       }
-    | LPAREN expression RPAREN
-      {
+    | LPAREN expression RPAREN {
           $$ = std::move($2);
       }
     ;

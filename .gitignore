@@ -1,4 +1,4 @@
-# Byte-compiled / optimized / DLL files
+nano .gitignore# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
 *$py.class
@@ -218,3 +218,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Compiler generated files and build artifacts
+compiler/compiler_app
+compiler/lexer_test
+compiler/src/*.o
+compiler/src/lex.yy.cpp
+compiler/src/parser.cpp
+compiler/src/parser.hpp
+compiler/src/location.hh

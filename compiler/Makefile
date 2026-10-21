@@ -1,4 +1,3 @@
-
 CXX = g++
 FLEX = flex
 BISON = bison
@@ -11,7 +10,7 @@ PARSER_HPP = src/parser.hpp
 LEXER_CPP = src/lex.yy.cpp
 LOCATION_HPP = src/location.hh
 
-SOURCES = src/main.cpp $(PARSER_CPP) $(LEXER_CPP) src/semantic.cpp
+SOURCES = src/main.cpp src/ast_printer.cpp src/ast_compare.cpp src/source_parser.cpp src/json_output.cpp $(PARSER_CPP) $(LEXER_CPP) src/semantic.cpp
 OBJECTS = $(SOURCES:.cpp=.o)
 
 .PHONY: all clean run

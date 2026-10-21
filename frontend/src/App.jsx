@@ -403,6 +403,50 @@ export default function App() {
               </div>
 
               <section className="output-section">
+                <h4>Compilation & Error Recovery</h4>
+                <div className="summary-grid">
+                  <div className="summary-card">
+                    <span>Parser Recovery</span>
+                    <strong>
+                      {result.recovered ? "Recovered" : result.success ? "Clean" : "Not recovered"}
+                    </strong>
+                  </div>
+                  <div className="summary-card">
+                    <span>Trace Events</span>
+                    <strong>{result.trace?.length ?? 0}</strong>
+                  </div>
+                </div>
+                <p className="muted">
+                  Recovery allows the parser to continue after a syntax error
+                  and preserve later valid statements when possible.
+                </p>
+              </section>
+
+              <section className="output-section">
+                <h4>Parser Execution Trace</h4>
+                {result.trace?.length ? (
+                  <div className="trace-list">
+                    {result.trace.map((event, index) => (
+                      <div className="trace-event" key={`${event.line}-${event.column}-${index}`}>
+                        <span className="trace-index">{String(index + 1).padStart(2, "0")}</span>
+                        <div className="trace-body">
+                          <code>{event.rule}</code>
+                          <p>{event.detail || "Parser rule recognized"}</p>
+                          <span className="trace-location">
+                            Line {event.line}, column {event.column}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="muted">
+                    No parser trace returned. Compile your source to inspect parser steps.
+                  </p>
+                )}
+              </section>
+
+              <section className="output-section">
                 <h4>Lexical Tokens</h4>
 
                 {result.tokens?.length ? (

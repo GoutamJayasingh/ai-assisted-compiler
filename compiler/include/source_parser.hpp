@@ -13,6 +13,7 @@ struct SourceParseResult {
     Program program;
     std::vector<Diagnostic> diagnostics;
     std::vector<TokenInfo> tokens;
+    std::vector<TraceEvent> trace;
     bool success = false;
     bool recovered = false;
 };

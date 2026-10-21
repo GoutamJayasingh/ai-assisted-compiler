@@ -51,7 +51,8 @@ int runTerminalMode() {
     std::vector<compiler::Diagnostic> diagnostics;
 
     trace("Parsing started");
-    yy::parser parser(program, diagnostics);
+    std::vector<compiler::TraceEvent> parser_trace;
+    yy::parser parser(program, diagnostics, parser_trace);
     const int parse_status = parser.parse();
 
     if (parse_status == 0 && diagnostics.empty()) {

@@ -19,6 +19,13 @@ struct TokenInfo {
     int column = 1;
 };
 
+struct TraceEvent {
+    std::string rule;
+    int line = 1;
+    int column = 1;
+    std::string detail;
+};
+
 // When non-null, the lexer records each recognized token here.
 // When null, token collection is disabled.
 void setTokenCollector(std::vector<TokenInfo>* collector);

@@ -158,6 +158,21 @@ void writeCompileResultJson(
     }
     out << ']';
 
+    out << ",\"trace\":[";
+    for (std::size_t i = 0; i < result.trace.size(); ++i) {
+        if (i > 0) out << ',';
+        const auto& event = result.trace[i];
+
+        out << "{\"rule\":";
+        writeEscapedString(event.rule, out);
+        out << ",\"line\":" << event.line
+            << ",\"column\":" << event.column
+            << ",\"detail\":";
+        writeEscapedString(event.detail, out);
+        out << '}';
+    }
+    out << ']';
+
     out << ",\"ast\":{\"type\":\"Program\",\"statements\":[";
     for (std::size_t i = 0; i < result.program.statements.size(); ++i) {
         if (i > 0) out << ',';

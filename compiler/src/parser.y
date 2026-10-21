@@ -12,6 +12,7 @@
 %code requires {
     #include "ast.hpp"
     #include "semantic.hpp"
+    #include "lexer_buffer.hpp"
     #include <memory>
     #include <string>
     #include <vector>
@@ -31,6 +32,7 @@
 
 %parse-param { compiler::Program& program }
 %parse-param { std::vector<compiler::Diagnostic>& diagnostics }
+%parse-param { std::vector<compiler::TraceEvent>& trace }
 
 %token INT "int"
 %token PRINT "print"
@@ -62,14 +64,36 @@ input:
           if ($2) program.statements.push_back(std::move($2));
       }
     | input error SEMICOLON {
+          trace.push_back({"input -> input error SEMICOLON",
+              static_cast<int>(@2.begin.line),
+              static_cast<int>(@2.begin.column),
+              "Recovered from syntax error at statement boundary"});
           yyerrok;
       }
     ;
 
 statement:
-      declaration { $$ = std::move($1); }
-    | assignment { $$ = std::move($1); }
-    | print_statement { $$ = std::move($1); }
+      declaration {
+          trace.push_back({"declaration -> INT IDENTIFIER ASSIGN expression SEMICOLON",
+    static_cast<int>(@1.begin.line),
+    static_cast<int>(@1.begin.column),
+    "Declaration reduced"});
+          $$ = std::move($1);
+      }
+    | assignment {
+          trace.push_back({"assignment -> IDENTIFIER ASSIGN expression SEMICOLON",
+    static_cast<int>(@1.begin.line),
+    static_cast<int>(@1.begin.column),
+    "Assignment reduced"});
+          $$ = std::move($1);
+      }
+    | print_statement {
+          trace.push_back({"print_statement -> PRINT LPAREN expression RPAREN SEMICOLON",
+    static_cast<int>(@1.begin.line),
+    static_cast<int>(@1.begin.column),
+    "Print statement reduced"});
+          $$ = std::move($1);
+      }
     ;
 
 declaration:
@@ -95,10 +119,18 @@ print_statement:
 
 expression:
       expression PLUS term {
+          trace.push_back({"expression -> expression PLUS term",
+              static_cast<int>(@2.begin.line),
+              static_cast<int>(@2.begin.column),
+              "Addition expression reduced"});
           $$ = std::make_unique<compiler::BinaryExpr>(
               '+', std::move($1), std::move($3), toSourceLocation(@2));
       }
     | expression MINUS term {
+          trace.push_back({"expression -> expression MINUS term",
+              static_cast<int>(@2.begin.line),
+              static_cast<int>(@2.begin.column),
+              "Subtraction expression reduced"});
           $$ = std::make_unique<compiler::BinaryExpr>(
               '-', std::move($1), std::move($3), toSourceLocation(@2));
       }
@@ -107,10 +139,18 @@ expression:
 
 term:
       term STAR factor {
+          trace.push_back({"term -> term STAR factor",
+              static_cast<int>(@2.begin.line),
+              static_cast<int>(@2.begin.column),
+              "Multiplication term reduced"});
           $$ = std::make_unique<compiler::BinaryExpr>(
               '*', std::move($1), std::move($3), toSourceLocation(@2));
       }
     | term SLASH factor {
+          trace.push_back({"term -> term SLASH factor",
+              static_cast<int>(@2.begin.line),
+              static_cast<int>(@2.begin.column),
+              "Division term reduced"});
           $$ = std::make_unique<compiler::BinaryExpr>(
               '/', std::move($1), std::move($3), toSourceLocation(@2));
       }
@@ -119,14 +159,26 @@ term:
 
 factor:
       NUMBER {
+          trace.push_back({"factor -> NUMBER",
+              static_cast<int>(@1.begin.line),
+              static_cast<int>(@1.begin.column),
+              "Integer literal recognized"});
           $$ = std::make_unique<compiler::NumberExpr>(
               $1, toSourceLocation(@1));
       }
     | IDENTIFIER {
+          trace.push_back({"factor -> IDENTIFIER",
+              static_cast<int>(@1.begin.line),
+              static_cast<int>(@1.begin.column),
+              "Identifier expression recognized"});
           $$ = std::make_unique<compiler::IdentifierExpr>(
               std::move($1), toSourceLocation(@1));
       }
     | LPAREN expression RPAREN {
+          trace.push_back({"factor -> LPAREN expression RPAREN",
+              static_cast<int>(@1.begin.line),
+              static_cast<int>(@1.begin.column),
+              "Parenthesized expression recognized"});
           $$ = std::move($2);
       }
     ;

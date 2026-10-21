@@ -79,6 +79,7 @@ class CompileResponse(BaseModel):
     ast: Optional[dict] = None
     diagnostics: list[Diagnostic] = Field(default_factory=list)
     recovered: bool = False
+    trace: list[dict] = Field(default_factory=list)
 
 
 class CorrectionRequest(BaseModel):
@@ -203,6 +204,7 @@ def compile_code(request: CompileRequest):
             ast=data.get("ast"),
             diagnostics=data.get("diagnostics", []),
             recovered=bool(data.get("recovered", False)),
+            trace=data.get("trace", []),
         )
 
     except subprocess.TimeoutExpired:

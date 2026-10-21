@@ -1,5 +1,6 @@
 
 import json
+import hashlib
 import os
 import subprocess
 from pathlib import Path
@@ -61,7 +62,7 @@ OPENROUTER_MODEL = os.getenv(
 # --------------------------------------------------
 
 class CompileRequest(BaseModel):
-    source_code: str = Field(min_length=1, max_length=50000)
+    source_code: str = Field(min_length=0, max_length=50000)
 
 
 class Diagnostic(BaseModel):
@@ -91,6 +92,33 @@ class CorrectionResponse(BaseModel):
     suggestions: list[str]
     corrected_code: Optional[str] = None
     explanation: str
+    original_fingerprint: Optional[str] = None
+    corrected_fingerprint: Optional[str] = None
+    intent_status: str = "inconclusive"
+    ast_differences: list[str] = Field(default_factory=list)
+
+def normalize_ast(value):
+    """Remove source locations so fingerprints represent AST structure."""
+    if isinstance(value, dict):
+        return {
+            key: normalize_ast(item)
+            for key, item in sorted(value.items())
+            if key not in ("line", "column")
+        }
+    if isinstance(value, list):
+        return [normalize_ast(item) for item in value]
+    return value
+
+
+def ast_fingerprint(ast: dict) -> str:
+    """Stable SHA-256 fingerprint of a normalized compiler AST."""
+    canonical = json.dumps(
+        normalize_ast(ast),
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
 
 def compare_ast_json(original: dict, corrected: dict) -> list[str]:
     """Return paths where two compiler ASTs differ."""
@@ -253,6 +281,10 @@ def correct_code(request: CorrectionRequest):
 
     suggestions: list[str] = []
     corrected_code: Optional[str] = None
+    original_fingerprint: Optional[str] = None
+    corrected_fingerprint: Optional[str] = None
+    intent_status = "inconclusive"
+    ast_differences: list[str] = []
     explanation = (
         "Review the suggested correction and compile the code again."
     )
@@ -287,7 +319,11 @@ def correct_code(request: CorrectionRequest):
 
     # Rule 2: Missing semicolon.
     if not suggestions and any(
-        "expecting" in message and ";" in message
+        (
+            "expecting" in message and ";" in message
+        )
+        or "expected semicolon" in message
+        or "missing semicolon" in message
         for message in messages
     ):
         lines = source.splitlines()
@@ -312,16 +348,54 @@ def correct_code(request: CorrectionRequest):
                 )
                 break
 
+
+
+
     # Rule 3: Missing closing parenthesis.
-    if not suggestions and source.count("(") > source.count(")"):
-        corrected_code = source + ")"
-        suggestions.append(
-            "A closing parenthesis ')' may be missing."
-        )
-        explanation = (
-            "There are more opening parentheses than closing parentheses. "
-            "Check the location before applying this change."
-        )
+    # Only attempt a conservative same-line correction when the
+    # statement ends with a semicolon and parentheses are unmatched.
+    if not suggestions:
+        lines = source.splitlines()
+        candidates = []
+
+        for index, line in enumerate(lines):
+            stripped = line.rstrip()
+
+            if not stripped.endswith(";"):
+                continue
+
+            # Only handle the simple print(...) form for now.
+            if not stripped.lstrip().startswith("print("):
+                continue
+
+            # Avoid guessing when parentheses may occur in comments
+            # or other unsupported syntax.
+            missing = stripped.count("(") - stripped.count(")")
+
+            if missing > 0:
+                semicolon_index = stripped.rfind(";")
+                candidate_line = (
+                    stripped[:semicolon_index]
+                    + ")" * missing
+                    + stripped[semicolon_index:]
+                )
+                candidate_lines = list(lines)
+                candidate_lines[index] = candidate_line
+                candidates.append("\n".join(candidate_lines))
+
+        if len(candidates) == 1:
+            corrected_code = candidates[0]
+            suggestions.append(
+                "Proposed closing parenthesis(es) in a print statement. "
+                "Review the change before applying it."
+            )
+            explanation = (
+                "A simple print statement appears to have unmatched "
+                "opening parentheses. The proposed correction must pass "
+                "compiler validation before it can be applied."
+            )
+
+
 
     # Rule 4: Undeclared variable.
     if not suggestions and any(
@@ -420,17 +494,40 @@ def correct_code(request: CorrectionRequest):
                                     ]
                                 return value
 
-                            differences = compare_ast_json(
-                                remove_locations(original_ast),
-                                remove_locations(corrected_ast),
-                            )
+                            original_fingerprint = ast_fingerprint(original_ast)
+                            corrected_fingerprint = ast_fingerprint(corrected_ast)
 
-                            if differences:
+                            differences = compare_ast_json(
+                                normalize_ast(original_ast),
+                                normalize_ast(corrected_ast),
+                            )
+                            ast_differences = differences
+
+                            if original_fingerprint == corrected_fingerprint:
+                                intent_status = "preserved"
                                 suggestions.append(
-                                    "Review the proposed fix: it changes "
-                                    "the program's AST structure. "
+                                    "AST fingerprint matches: the correction "
+                                    "preserves the normalized AST structure."
+                                )
+                            else:
+                                intent_status = "changed"
+                                suggestions.append(
+                                    "AST fingerprint differs: review whether "
+                                    "the correction changes the program's intent. "
                                     + "; ".join(differences[:5])
                                 )
+                        else:
+                            intent_status = "inconclusive"
+                            suggestions.append(
+                                "Intent comparison was inconclusive because "
+                                "an AST was unavailable."
+                            )
+                    else:
+                        intent_status = "inconclusive"
+                        suggestions.append(
+                            "Intent comparison was inconclusive because the "
+                            "original source did not produce a compiler result."
+                        )
 
             except (
                 subprocess.TimeoutExpired,
@@ -446,6 +543,10 @@ def correct_code(request: CorrectionRequest):
         suggestions=suggestions,
         corrected_code=corrected_code,
         explanation=explanation,
+        original_fingerprint=original_fingerprint,
+        corrected_fingerprint=corrected_fingerprint,
+        intent_status=intent_status,
+        ast_differences=ast_differences,
     )
 
 

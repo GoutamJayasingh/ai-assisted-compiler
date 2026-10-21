@@ -1298,3 +1298,37 @@ td:nth-child(2) code {
   color: var(--muted-color, #64748b);
   font-size: 12px;
 }
+
+.intent-status {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--border-color, #888);
+  border-radius: 8px;
+  font-size: 0.92rem;
+}
+
+.intent-preserved {
+  border-color: #26945c;
+}
+
+.intent-changed {
+  border-color: #d97706;
+}
+
+.intent-inconclusive {
+  border-color: #888;
+}
+
+.fingerprint-details {
+  margin: 10px 0;
+  overflow-wrap: anywhere;
+}
+
+.fingerprint-details summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.fingerprint-details code {
+  overflow-wrap: anywhere;
+}

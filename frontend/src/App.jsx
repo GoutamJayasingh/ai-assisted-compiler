@@ -182,7 +182,7 @@ export default function App() {
 
       setResult(compileData);
 
-      // Request AI-powered correction suggestions.
+      // Request rule-based correction suggestions.
       const response = await fetch(`${API_URL}/api/correct`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -198,7 +198,7 @@ export default function App() {
         throw new Error(
           typeof data.detail === "string"
             ? data.detail
-            : `AI correction failed (${response.status})`
+            : `Correction request failed (${response.status})`
         );
       }
 
@@ -306,9 +306,33 @@ export default function App() {
 
           {correction && (
             <section className="correction-panel">
-              <h3>AI Correction Suggestions</h3>
+              <h3>Code Correction Suggestions</h3>
 
               <p>{correction.explanation}</p>
+
+              <div className={`intent-status intent-${correction.intent_status || "inconclusive"}`}>
+                <strong>Intent Preservation Check: </strong>
+                {correction.intent_status === "preserved"
+                  ? "Preserved — the normalized AST fingerprints match."
+                  : correction.intent_status === "changed"
+                    ? "Potentially changed — the AST fingerprints differ. Review the differences."
+                    : "Inconclusive — a reliable original AST was unavailable for comparison."}
+              </div>
+
+              {correction.original_fingerprint && (
+                <details className="fingerprint-details">
+                  <summary>View AST fingerprints and comparison</summary>
+                  <p><strong>Original:</strong> <code>{correction.original_fingerprint}</code></p>
+                  <p><strong>Corrected:</strong> <code>{correction.corrected_fingerprint || "Unavailable"}</code></p>
+                  {correction.ast_differences?.length > 0 && (
+                    <ul>
+                      {correction.ast_differences.map((difference, index) => (
+                        <li key={index}>{difference}</li>
+                      ))}
+                    </ul>
+                  )}
+                </details>
+              )}
 
               {correction.suggestions?.length > 0 && (
                 <ul>
@@ -336,13 +360,13 @@ export default function App() {
                 </>
               ) : (
                 <p className="muted">
-                  The AI did not provide corrected code. Review its
+                  No corrected code was provided. Review the
                   suggestions and edit your code manually.
                 </p>
               )}
 
               <p className="muted">
-                AI-generated corrections may be incorrect. Always review
+                Suggested corrections may be incorrect. Always review
                 the code and check the compiler results.
               </p>
             </section>

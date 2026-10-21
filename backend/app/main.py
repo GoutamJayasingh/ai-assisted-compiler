@@ -5,6 +5,7 @@ import os
 import subprocess
 from pathlib import Path
 from typing import Optional
+from dotenv import load_dotenv
 
 import requests
 from fastapi import FastAPI, HTTPException
@@ -31,7 +32,7 @@ allowed_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
-
+load_dotenv()
 frontend_url = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
 if frontend_url:
     allowed_origins.append(frontend_url)
@@ -276,8 +277,17 @@ def compile_code(request: CompileRequest):
 @app.post("/api/correct", response_model=CorrectionResponse)
 def correct_code(request: CorrectionRequest):
     source = request.source_code
-    diagnostics = request.diagnostics
+
+    if request.diagnostics:
+        diagnostics = request.diagnostics
+    else:
+        compile_result = compile_code(
+            CompileRequest(source_code=source)
+        )
+        diagnostics = compile_result.diagnostics
+
     messages = [d.message.lower() for d in diagnostics]
+
 
     suggestions: list[str] = []
     corrected_code: Optional[str] = None
@@ -317,15 +327,24 @@ def correct_code(request: CorrectionRequest):
             "values. Review them before applying."
         )
 
+    
     # Rule 2: Missing semicolon.
-    if not suggestions and any(
-        (
-            "expecting" in message and ";" in message
+    if not suggestions and (
+        any(
+            (
+                "expecting" in message and ";" in message
+            )
+            or "expected semicolon" in message
+            or "missing semicolon" in message
+            for message in messages
         )
-        or "expected semicolon" in message
-        or "missing semicolon" in message
-        for message in messages
+        or any(
+            d.phase.lower() == "syntax"
+            and "unexpected print" in d.message.lower()
+            for d in diagnostics
+        )
     ):
+
         lines = source.splitlines()
 
         for index in range(len(lines) - 1, -1, -1):

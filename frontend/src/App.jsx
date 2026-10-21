@@ -156,6 +156,7 @@ export default function App() {
     }
   }
 
+  
   async function suggestCorrection() {
     setCorrecting(true);
     setCorrection(null);
@@ -163,33 +164,10 @@ export default function App() {
     setError("");
 
     try {
-      // Compile first to obtain current diagnostics.
-      const compileResponse = await fetch(`${API_URL}/api/compile`, {
+      const response = await fetch(`${API_URL}/api/ai-correct`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ source_code: sourceCode }),
-      });
-
-      const compileData = await compileResponse.json();
-
-      if (!compileResponse.ok) {
-        throw new Error(
-          typeof compileData.detail === "string"
-            ? compileData.detail
-            : "Could not retrieve compiler diagnostics."
-        );
-      }
-
-      setResult(compileData);
-
-      // Request rule-based correction suggestions.
-      const response = await fetch(`${API_URL}/api/correct`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          source_code: sourceCode,
-          diagnostics: compileData.diagnostics ?? [],
-        }),
       });
 
       const data = await response.json();
@@ -198,7 +176,7 @@ export default function App() {
         throw new Error(
           typeof data.detail === "string"
             ? data.detail
-            : `Correction request failed (${response.status})`
+            : `AI correction request failed (${response.status})`
         );
       }
 
@@ -211,6 +189,7 @@ export default function App() {
       setCorrecting(false);
     }
   }
+
 
   async function applyCorrection() {
     if (!correction?.corrected_code) return;

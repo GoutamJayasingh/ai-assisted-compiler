@@ -134,14 +134,7 @@ export default function App() {
         <button className="nav-item" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>⌂ <span>Compiler Workspace</span></button>
         {sections.map(item => <button key={item.id} className={`nav-item ${activeSection === item.id ? "active" : ""}`} onClick={() => navigate(item.id)}>{item.icon}<span>{item.title}</span></button>)}
       </nav>
-      <div className="quick-examples">
-        <strong>Quick examples</strong>
-        <button onClick={() => setSourceCode("int x = 10;\nprint(x + 2);")}>Valid program</button>
-        <button onClick={() => setSourceCode("print(10 + 20;")}>Missing parenthesis</button>
-        <button onClick={() => setSourceCode("int x = ;\nprint(x);")}>Missing expression</button>
-        <button onClick={() => setSourceCode("print(10));")}>Extra parenthesis</button>
-        <p>Choose an example, then compile to inspect the real output.</p>
-      </div>
+
     </aside>
 
     <div className="main-area">

@@ -501,6 +501,59 @@ export default function App() {
                 )}
               </section>
 
+              {result.triangulation && (
+                <section className="output-section">
+                  <h4>Syntax Error Triangulation</h4>
+
+                  <div
+                    className={`triangulation-summary triangulation-${result.triangulation.status || "inconclusive"}`}
+                  >
+                    <div className="triangulation-status">
+                      <span>Status</span>
+                      <strong>{result.triangulation.status || "inconclusive"}</strong>
+                    </div>
+                    <p>
+                      {result.triangulation.summary ||
+                        "No triangulation summary was returned."}
+                    </p>
+                  </div>
+
+                  {result.triangulation.candidates?.length ? (
+                    <div className="triangulation-candidates">
+                      {result.triangulation.candidates.map((candidate, index) => (
+                        <article className="triangulation-candidate" key={`${candidate.line}-${candidate.column}-${index}`}>
+                          <div className="triangulation-candidate-heading">
+                            <strong>Candidate {index + 1}</strong>
+                            <span>Heuristic score: {candidate.score}</span>
+                          </div>
+                          <p className="triangulation-location">
+                            Likely region: lines {candidate.start_line}–{candidate.end_line};
+                            reported location: line {candidate.line}, column {candidate.column}
+                          </p>
+                          {candidate.evidence?.length ? (
+                            <ul>
+                              {candidate.evidence.map((item, evidenceIndex) => (
+                                <li key={evidenceIndex}>{item}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="muted">No evidence details were returned.</p>
+                          )}
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="muted">
+                      No candidate regions were identified by the triangulation pass.
+                    </p>
+                  )}
+
+                  <p className="muted triangulation-note">
+                    Candidate ranking is heuristic; it suggests a likely region and does not guarantee the exact fault location.
+                  </p>
+                </section>
+              )}
+
               <section className="output-section">
                 <h4>Diagnostics</h4>
 

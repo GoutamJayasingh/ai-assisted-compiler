@@ -37,15 +37,14 @@ function IndentedAst({ node, depth = 0, label = "root" }) {
   return <div><div className="ast-line" style={{ paddingLeft: depth * 18 }}><span className="ast-branch">└─</span> <strong>{label}: {type}</strong></div>{Object.entries(node).filter(([key, value]) => key !== "type" && key !== "kind" && value != null).map(([key, value]) => typeof value === "object" ? <IndentedAst key={key} node={value} depth={depth + 1} label={key} /> : <div className="ast-line" style={{ paddingLeft: (depth + 1) * 18 }} key={key}><span className="ast-branch">└─</span> <strong>{key}:</strong> {String(value)}</div>)}</div>;
 }
 
-function Accordion({ id, number, title, description, icon, open, onToggle, children }) {
-  return <section className={`accordion-card ${open ? "is-open" : ""}`} id={id}>
-    <button className="accordion-trigger" onClick={onToggle} aria-expanded={open}>
+function Accordion({ number, title, description, icon, children }) {
+  return <section className="accordion-card is-open">
+    <div className="accordion-trigger section-heading">
       <span className="section-icon">{icon}</span>
       <span className="section-number">{number}</span>
       <span className="accordion-title-wrap"><strong>{title}</strong><small>{description}</small></span>
-      <span className="accordion-chevron">{open ? "⌃" : "⌄"}</span>
-    </button>
-    {open && <div className="accordion-content">{children}</div>}
+    </div>
+    <div className="accordion-content">{children}</div>
   </section>;
 }
 
@@ -121,7 +120,7 @@ export default function App() {
 
   function navigate(id) {
     setActiveSection(id);
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   return <main className="app-shell">
@@ -170,7 +169,7 @@ export default function App() {
       </section>
 
       <div className="section-list">
-        {sections.filter(item => item.id === activeSection).map(item => <Accordion key={item.id} id={item.id} number={item.number} title={item.title} description={item.description} icon={item.icon} open={true} onToggle={() => setActiveSection(item.id)}>
+        {sections.filter(item => item.id === activeSection).map(item => <Accordion key={item.id} number={item.number} title={item.title} description={item.description} icon={item.icon}>
           {item.id === "triangulation" && <div className="triangulation-view">
             <div className="feature-intro"><span className="feature-pill">CORE PROJECT FEATURE</span><p>Triangulation compares two kinds of evidence. The parser reports where it failed; the backward scan looks for structural clues that may explain why.</p></div>
             {!result && <div className="empty-state"><strong>Compile a program to begin</strong><p>Try the “Missing parenthesis” example in the sidebar to see the analysis.</p></div>}

@@ -141,9 +141,8 @@ export default function App() {
       <header className="topbar">
         <p>Syntax Error Triangulation Using Forward Parser and Backward Structural Evidence</p>
         <div className="top-actions">
+          <span className="workspace-status"><span className="status-dot" /> Workspace ready</span>
           <button className="compile-button" onClick={() => compileCode()} disabled={loading || correcting || !sourceCode.trim()}>{loading ? "Compiling…" : "▶ Compile"}</button>
-          <button className="top-link" onClick={() => navigate("recovery")}>⌁ Recovery</button>
-          <button className="top-link" onClick={() => navigate("ast")}>⑂ AST</button>
         </div>
       </header>
 

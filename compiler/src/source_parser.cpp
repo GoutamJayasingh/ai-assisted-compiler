@@ -23,6 +23,9 @@ SourceParseResult parseSource(const std::string& source) {
 
     result.success = (status == 0 && result.diagnostics.empty());
     result.recovered = (status == 0 && !result.diagnostics.empty());
+    result.triangulation = analyzeSyntaxTriangulation(
+        result.tokens, result.diagnostics
+    );
 
     return result;
 }

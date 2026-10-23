@@ -3,6 +3,7 @@
 #include "ast.hpp"
 #include "lexer_buffer.hpp"
 #include "semantic.hpp"
+#include "syntax_triangulation.hpp"
 
 #include <string>
 #include <vector>
@@ -14,6 +15,7 @@ struct SourceParseResult {
     std::vector<Diagnostic> diagnostics;
     std::vector<TokenInfo> tokens;
     std::vector<TraceEvent> trace;
+    SyntaxTriangulation triangulation;
     bool success = false;
     bool recovered = false;
 };

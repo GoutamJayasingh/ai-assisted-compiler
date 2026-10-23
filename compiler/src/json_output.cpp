@@ -134,6 +134,31 @@ void writeStatement(const Stmt& stmt, std::ostream& out) {
     out << "null";
 }
 
+void writeTriangulation(const SyntaxTriangulation& analysis,
+                        std::ostream& out) {
+    out << "{\"status\":";
+    writeEscapedString(analysis.status, out);
+    out << ",\"summary\":";
+    writeEscapedString(analysis.summary, out);
+    out << ",\"candidates\":[";
+    for (std::size_t i = 0; i < analysis.candidates.size(); ++i) {
+        if (i > 0) out << ',';
+        const auto& candidate = analysis.candidates[i];
+        out << "{\"line\":" << candidate.line
+            << ",\"column\":" << candidate.column
+            << ",\"start_line\":" << candidate.start_line
+            << ",\"end_line\":" << candidate.end_line
+            << ",\"score\":" << candidate.score
+            << ",\"evidence\":[";
+        for (std::size_t j = 0; j < candidate.evidence.size(); ++j) {
+            if (j > 0) out << ',';
+            writeEscapedString(candidate.evidence[j], out);
+        }
+        out << "]}";
+    }
+    out << "]}";
+}
+
 } // namespace
 
 void writeCompileResultJson(
@@ -199,6 +224,9 @@ void writeCompileResultJson(
         out << '}';
     }
     out << ']';
+
+    out << ",\"triangulation\":";
+    writeTriangulation(result.triangulation, out);
 
     out << ",\"recovered\":"
         << (result.recovered ? "true" : "false")

@@ -27,6 +27,28 @@ SourceParseResult parseSource(const std::string& source) {
         result.tokens, result.diagnostics
     );
 
+    // Surface a concise triangulation summary through the existing diagnostic
+    // UI/API path, avoiding a required frontend or backend architecture change.
+    if (!result.triangulation.candidates.empty() &&
+        result.triangulation.status != "clear") {
+        const auto& candidate = result.triangulation.candidates.front();
+        std::string message = result.triangulation.summary;
+        message += " Top candidate region: lines " +
+            std::to_string(candidate.start_line) + "-" +
+            std::to_string(candidate.end_line) + ", score " +
+            std::to_string(candidate.score) + ".";
+        if (!candidate.evidence.empty()) {
+            message += " Evidence: ";
+            for (std::size_t i = 0; i < candidate.evidence.size(); ++i) {
+                if (i > 0) message += "; ";
+                message += candidate.evidence[i];
+            }
+        }
+        result.diagnostics.push_back({
+            "triangulation", candidate.line, candidate.column, message
+        });
+    }
+
     return result;
 }
 

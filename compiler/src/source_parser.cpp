@@ -27,26 +27,29 @@ SourceParseResult parseSource(const std::string& source) {
         result.tokens, result.diagnostics
     );
 
-    // Surface a concise triangulation summary through the existing diagnostic
-    // UI/API path, avoiding a required frontend or backend architecture change.
-    if (!result.triangulation.candidates.empty() &&
-        result.triangulation.status != "clear") {
-        const auto& candidate = result.triangulation.candidates.front();
-        std::string message = result.triangulation.summary;
-        message += " Top candidate region: lines " +
-            std::to_string(candidate.start_line) + "-" +
-            std::to_string(candidate.end_line) + ", score " +
-            std::to_string(candidate.score) + ".";
-        if (!candidate.evidence.empty()) {
-            message += " Evidence: ";
-            for (std::size_t i = 0; i < candidate.evidence.size(); ++i) {
-                if (i > 0) message += "; ";
-                message += candidate.evidence[i];
+    // Surface ranked candidates through the existing diagnostics path. This
+    // keeps the current API and frontend compatible without changing their
+    // architecture; the dedicated JSON field also preserves structured data.
+    if (result.triangulation.status != "clear") {
+        for (std::size_t i = 0;
+             i < result.triangulation.candidates.size(); ++i) {
+            const auto& candidate = result.triangulation.candidates[i];
+            std::string message = "Rank " + std::to_string(i + 1) +
+                " candidate (score " + std::to_string(candidate.score) +
+                ", region lines " + std::to_string(candidate.start_line) +
+                "-" + std::to_string(candidate.end_line) + "). " +
+                result.triangulation.summary;
+            if (!candidate.evidence.empty()) {
+                message += " Evidence: ";
+                for (std::size_t j = 0; j < candidate.evidence.size(); ++j) {
+                    if (j > 0) message += "; ";
+                    message += candidate.evidence[j];
+                }
             }
+            result.diagnostics.push_back({
+                "triangulation", candidate.line, candidate.column, message
+            });
         }
-        result.diagnostics.push_back({
-            "triangulation", candidate.line, candidate.column, message
-        });
     }
 
     return result;

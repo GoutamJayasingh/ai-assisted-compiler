@@ -228,3 +228,26 @@ td code { font-family:"Cascadia Code",Consolas,monospace; font-size:11px; }
  .guide-grid { grid-template-columns:1fr; }
 }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; transition:none!important; } }
+
+/* Landscape workspace: use available horizontal space instead of a tall single column. */
+@media (min-width: 1100px) and (orientation: landscape) {
+  .app-shell { grid-template-columns: 218px minmax(0, 1fr); }
+  .main-area { max-width: none; padding-right: 28px; padding-left: 28px; }
+  .topbar { margin-right: -28px; margin-left: -28px; padding-right: 28px; padding-left: 28px; }
+  .top-grid { grid-template-columns: minmax(0, 1.05fr) minmax(360px, .95fr); }
+  .section-list { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  #triangulation { grid-column: 1 / -1; }
+  #ast, #tokens, #trace, #recovery, #diagnostics { grid-column: span 1; }
+  .evidence-flow { grid-template-columns: minmax(0,1fr) 18px minmax(0,1fr) 18px minmax(0,1fr); }
+  .flow-arrow { transform: none; }
+  .candidate-layout { grid-template-columns: minmax(0,1.35fr) minmax(260px,.8fr); }
+  .accordion-content { padding: 0 20px 20px; }
+}
+@media (min-width: 1500px) and (orientation: landscape) {
+  .app-shell { grid-template-columns: 235px minmax(0,1fr); }
+  .main-area { padding-right: 36px; padding-left: 36px; }
+  .topbar { margin-right: -36px; margin-left: -36px; padding-right: 36px; padding-left: 36px; }
+  .workspace-heading { padding-top: 28px; padding-bottom: 20px; }
+  .workspace-heading h2 { font-size: 29px; }
+  .section-list { gap: 12px; }
+}

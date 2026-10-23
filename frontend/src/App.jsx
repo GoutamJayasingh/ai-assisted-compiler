@@ -80,7 +80,7 @@ export default function App() {
   async function suggestCorrection() {
     setCorrecting(true); setCorrection(null); setCorrectionError(""); setError("");
     try {
-      const response = await fetch(`${API_URL}/api/ai-correct`, {
+      const response = await fetch(`${API_URL}/api/correct`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ source_code: sourceCode }),
       });
@@ -170,7 +170,7 @@ export default function App() {
       </section>
 
       <div className="section-list">
-        {sections.map(item => <Accordion key={item.id} id={item.id} number={item.number} title={item.title} description={item.description} icon={item.icon} open={activeSection === item.id} onToggle={() => setActiveSection(activeSection === item.id ? "" : item.id)}>
+        {sections.filter(item => item.id === activeSection).map(item => <Accordion key={item.id} id={item.id} number={item.number} title={item.title} description={item.description} icon={item.icon} open={true} onToggle={() => setActiveSection(item.id)}>
           {item.id === "triangulation" && <div className="triangulation-view">
             <div className="feature-intro"><span className="feature-pill">CORE PROJECT FEATURE</span><p>Triangulation compares two kinds of evidence. The parser reports where it failed; the backward scan looks for structural clues that may explain why.</p></div>
             {!result && <div className="empty-state"><strong>Compile a program to begin</strong><p>Try the “Missing parenthesis” example in the sidebar to see the analysis.</p></div>}

@@ -93,10 +93,25 @@ int main() {
 }
 `;
 
+const DRAFT_KEY = "parallax-draft";
+
+/** The editor draft survives a page refresh (browser storage, best effort). */
+function loadDraft(): { source: string; origin: SourceOrigin } | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    return typeof d?.source === "string" && d.origin?.label ? d : null;
+  } catch {
+    return null;
+  }
+}
+
 export function ProjectProvider({ children, initialSource }: { children: ReactNode; initialSource?: string }) {
-  const [source, setSourceState] = useState(initialSource ?? STARTER);
-  const [origin, setOrigin] = useState<SourceOrigin>({ kind: "user", label: "untitled.mc" });
-  const [baseline, setBaseline] = useState(initialSource ?? STARTER);
+  const [draft] = useState(() => (initialSource === undefined ? loadDraft() : null));
+  const [source, setSourceState] = useState(initialSource ?? draft?.source ?? STARTER);
+  const [origin, setOrigin] = useState<SourceOrigin>(draft?.origin ?? { kind: "user", label: "untitled.mc" });
+  const [baseline, setBaseline] = useState(initialSource ?? draft?.source ?? STARTER);
   const [lex, setLex] = useState<RunResult<LexDoc> | null>(null);
   const [parse, setParse] = useState<RunResult<AnalyzeDoc> | null>(null);
   const [repair, setRepair] = useState<RunResult<RepairDoc> | null>(null);
@@ -118,6 +133,18 @@ export function ProjectProvider({ children, initialSource }: { children: ReactNo
   sourceRef.current = source;
   const optionsRef = useRef(options);
   optionsRef.current = options;
+
+  useEffect(() => {
+    if (initialSource !== undefined) return; // tests / embedded use: no persistence
+    const t = setTimeout(() => {
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({ source, origin }));
+      } catch {
+        /* storage unavailable: the draft simply is not kept */
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [source, origin, initialSource]);
 
   const refreshHealth = useCallback(async () => {
     try {

@@ -1,0 +1,145 @@
+# Parallax
+
+**Evidence-Ranked Multi-Hypothesis Syntax Error Detection, Localization, and Correction with Confidence-Aware Abstention**
+
+Parallax is a syntax-error investigation workbench for **MiniC**, a small C-like teaching language. It has a Flex/Bison/C++ compiler, a bounded multi-candidate repair engine, a reproducible evaluation harness, a FastAPI backend and a React/TypeScript interface. When a program has a syntax error, Parallax:
+
+1. generates alternative local repairs, using the parser's own expected-token sets and layout cues;
+2. validates every candidate with the real parser, on reconstructed source that is re-lexed and re-parsed;
+3. ranks candidates with an interpretable evidence score and shows every contribution;
+4. groups candidates that produce the same abstract syntax tree (AST);
+5. extends the best hypotheses to repair later errors and reports which follow-on diagnostics are stable across them;
+6. recommends a repair only when the evidence clearly separates it from structurally different alternatives, and otherwise **abstains**, explaining why.
+
+All outputs shown in the UI come from the real compiler. The evaluation numbers in this repository come from executed experiments (`evaluation/results/`).
+
+> Branch: `feature/parallax-syntax-repair`. Everything lives in `parallax/`; files outside it are untouched.
+
+---
+
+## Headline results (held-out test split, 540 cases)
+
+These are measured, not projected. Full tables: [`docs/RESULTS_AND_IMPACT.md`](docs/RESULTS_AND_IMPACT.md) and [`evaluation/results/report.md`](evaluation/results/report.md).
+
+| System | Top-1 repair = reference AST | Wrong but confident (of all cases) | Coverage |
+|---|---|---|---|
+| Parallax (full), abstention at dev-tuned τ = 1.5 | **71.5%** [67.5, 75.1] | **6.1%** [4.4, 8.5] | 50.7% |
+| Parallax, forced top-1 (no abstention) | 71.5% | 28.5% | 100% |
+| Local least-cost repair (baseline C) | 55.2% [51.0, 59.3] | 44.6% | 99.8% |
+| CPCT+ via grmtools `nimbleparse` (baseline G, 2 replicates) | ≈48–49% | ≈51–52% | 100% |
+
+Paired bootstrap, Parallax − least-cost top-1: **+16.3 points**, 95% CI [13.1, 19.4]. Results that did **not** improve are reported too. The follow-on stability evidence gives no measurable accuracy gain (+0.2 points, CI includes 0). Selective risk on test (12.0%) exceeds the 10% target that τ was tuned for on dev. The errors are **synthetic mutations**, not real student code.
+
+---
+
+## Repository layout
+
+```
+parallax/
+  compiler/      Flex lexer, Bison grammar, C++ AST + repair engine, parallaxc CLI, C++ tests
+  backend/       FastAPI app (app/), API tests (tests/)
+  frontend/      React + TypeScript + Vite workbench; vitest unit tests, Playwright E2E
+  evaluation/    programs/ (30 valid programs), generators/, baselines/ (incl. CPCT+ adapter),
+                 metrics/, experiments/, catalog/ (executable error catalog), dataset/, results/
+  examples/      12 bundled demo programs + examples.json (descriptions, documented outcomes)
+  docs/          20+ Markdown documents (see index below)
+  scripts/       setup, build, test_all, run_backend, run_dev, run_evaluation
+```
+
+## Prerequisites
+
+| Tool | Tested version | Needed for |
+|---|---|---|
+| C++17 compiler (g++/clang++) | g++ 13.3 | compiler |
+| CMake | 3.28 (≥ 3.16) | compiler |
+| GNU Bison | 3.8.2 (≥ 3.6 required: `parse.error custom`) | compiler |
+| Flex | 2.6.4 | compiler |
+| Python | 3.13 (≥ 3.10) | backend, evaluation |
+| Node.js / npm | 22.x / 10.x | frontend |
+| Rust + `nimbleparse` | nimbleparse 0.15.0 | **optional** CPCT+ baseline only |
+
+No paid service, API key or network access is needed at run time.
+
+## Quick start
+
+```bash
+cd parallax
+# 1. dependencies (Ubuntu/Debian: sudo apt-get install -y g++ cmake bison flex python3-pip nodejs npm)
+python3 -m pip install -r backend/requirements.txt
+(cd frontend && npm ci)
+
+# 2. build the compiler and the UI
+./scripts/build.sh                 # cmake + make, then `npm run build`
+
+# 3. run: the backend serves the API and the built UI on one port
+./scripts/run_backend.sh           # http://127.0.0.1:8000
+```
+
+Open <http://127.0.0.1:8000>, choose **Guided demo** in the sidebar, or open the **Code workbench** and pick a sample.
+
+Development mode with hot reload: `./scripts/run_dev.sh` (API on :8000, Vite on <http://localhost:5173>).
+
+### Use the compiler directly
+
+```bash
+./compiler/build/parallaxc lex     --file examples/02_missing_semicolon.mc
+./compiler/build/parallaxc analyze --file examples/02_missing_semicolon.mc --trace
+./compiler/build/parallaxc repair  --file examples/06_multiple_errors.mc
+./compiler/build/parallaxc tree    < examples/01_valid_basic.mc
+```
+
+## Tests
+
+```bash
+./scripts/test_all.sh                       # every layer; prints PASS/FAIL/SKIPPED per layer
+PARALLAX_E2E=1 ./scripts/test_all.sh        # also Playwright E2E (backend must run on :8000)
+```
+
+Layers (latest run, see [`docs/TESTING.md`](docs/TESTING.md)): 66 C++ tests, 31 API tests, 71 evaluation tests (including 61 error-catalog cases), 23 frontend unit tests and 11 end-to-end checks, all passing.
+
+## Reproduce the evaluation
+
+```bash
+./scripts/run_evaluation.sh          # regenerates the dataset (seeded) and runs all systems (~1 min)
+```
+
+CPCT+ runs only if `nimbleparse` is installed (`cargo install nimbleparse`); otherwise the report says it was not run.
+
+## Documentation index
+
+| Document | Contents |
+|---|---|
+| [PROJECT_OVERVIEW](docs/PROJECT_OVERVIEW.md) | abstract, problem, objectives, scope, methodology, requirements |
+| [RESEARCH_POSITIONING](docs/RESEARCH_POSITIONING.md) | related work (verified references), contribution, claims and non-claims |
+| [MINIC_LANGUAGE_SPEC](docs/MINIC_LANGUAGE_SPEC.md) | the language |
+| [LEXER_DESIGN](docs/LEXER_DESIGN.md) | tokens, positions, lexical errors |
+| [GRAMMAR_AND_PARSER](docs/GRAMMAR_AND_PARSER.md) | grammar, precedence, LAC, recovery, diagnostics |
+| [AST_AND_REPRESENTATIONS](docs/AST_AND_REPRESENTATIONS.md) | AST, ownership, canonical form, parse tree vs AST |
+| [REPAIR_ALGORITHM](docs/REPAIR_ALGORITHM.md) | generation, validation, evidence, grouping, lanes, abstention, pseudocode |
+| [ARCHITECTURE](docs/ARCHITECTURE.md) | components and data flow |
+| [API_CONTRACT](docs/API_CONTRACT.md) | endpoints, schemas, failure states |
+| [EVALUATION_PROTOCOL](docs/EVALUATION_PROTOCOL.md) | dataset, splits, metrics, baselines, threats to validity |
+| [RESULTS_AND_IMPACT](docs/RESULTS_AND_IMPACT.md) | measured results, including negative ones |
+| [ERROR_CATALOG](docs/ERROR_CATALOG.md) / [observed results](docs/ERROR_CATALOG_RESULTS.md) | cases, expected and observed behaviour |
+| [TESTING](docs/TESTING.md) | test layers, commands, outcomes |
+| [INSTALLATION_AND_TROUBLESHOOTING](docs/INSTALLATION_AND_TROUBLESHOOTING.md) | setup on Linux/macOS/Windows (WSL) |
+| [DEMO_SCRIPT](docs/DEMO_SCRIPT.md) | timed live demonstration |
+| [VIVA_PREPARATION](docs/VIVA_PREPARATION.md) | likely questions and defensible answers |
+| [DECISION_LOG](docs/DECISION_LOG.md) | design decisions and reasons |
+| [KNOWN_LIMITATIONS](docs/KNOWN_LIMITATIONS.md) | limits and future work |
+| [CONTRIBUTION_AND_IMPACT](docs/CONTRIBUTION_AND_IMPACT.md) | feature-to-test and feature-to-evidence tables |
+| [PRESENTATION_OUTLINE](docs/PRESENTATION_OUTLINE.md) | short talk outline |
+
+## Limitations in one paragraph
+
+Parallax validates **syntax only**: a parser-valid repair can still change meaning. MiniC is a subset of C. The benchmark uses synthetic mutations of 30 hand-written programs. The evidence weights were hand-set (on the dev split), and the decision margin is a score difference, **not a probability**. Repairs that need three or more tokens at one error site are outside the bounded search. See [`docs/KNOWN_LIMITATIONS.md`](docs/KNOWN_LIMITATIONS.md).
+
+## Troubleshooting (most common)
+
+- **UI says “Backend offline”**: start `./scripts/run_backend.sh`.
+- **“Compiler not built” (HTTP 503)**: run `cmake -S compiler -B compiler/build && cmake --build compiler/build`.
+- **Bison error about `parse.error custom`**: Bison < 3.6. On macOS: `brew install bison` and put `$(brew --prefix bison)/bin` first on `PATH`.
+
+## License
+
+MIT for Parallax code (see [`LICENSE`](LICENSE)); third-party components are listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

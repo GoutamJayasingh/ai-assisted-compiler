@@ -47,6 +47,14 @@ await step("accept needs confirmation, applies, and undo restores the original",
   expect(!(await page.locator(".cm-content").innerText()).includes("int total = 0;"), "undo failed");
 });
 
+await step("a page refresh keeps the editor draft", async () => {
+  await page.waitForTimeout(600); // draft is saved after a short debounce
+  await page.reload();
+  await page.locator(".cm-content").waitFor();
+  expect((await page.locator(".cm-content").innerText()).includes("int total = 0"), "draft lost on refresh");
+  expect((await page.locator(".file-chip").innerText()).includes("02_missing_semicolon"), "file label lost");
+});
+
 await step("lexer view: selecting a token highlights it and shows its Flex rule", async () => {
   await page.getByRole("link", { name: "Lexical analysis" }).click();
   await page.getByRole("button", { name: /Run lexer/ }).first().click();
@@ -57,7 +65,7 @@ await step("lexer view: selecting a token highlights it and shows its Flex rule"
 
 await step("parser view shows exact expected tokens and LR items", async () => {
   await page.getByRole("link", { name: "Grammar & parsing" }).click();
-  await page.getByRole("button", { name: /Run parser/ }).click();
+  await page.getByRole("button", { name: /Run parser/ }).first().click();
   await page.getByText(/Expected here/).waitFor();
   await page.getByText(/Grammar items in state/).waitFor();
 });
@@ -83,7 +91,7 @@ await step("hypothesis lanes for two errors", async () => {
 
 await step("AST compare: repaired program vs candidate", async () => {
   await page.getByRole("link", { name: "AST explorer" }).click();
-  await page.getByRole("button", { name: /Build AST/ }).click();
+  await page.getByRole("button", { name: /Build AST/ }).first().click();
   await page.getByRole("tab", { name: /Compare/ }).click();
   await page.getByRole("button", { name: /Compare ASTs/ }).click();
   await page.locator(".banner").filter({ hasText: /structural|Cannot compare|Structurally identical/ }).first().waitFor();

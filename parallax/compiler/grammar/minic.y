@@ -33,7 +33,12 @@ struct PxLoc { int b; int e; };
 /* Route Bison's debug trace into the current parse context. */
 static void px_trace_printf(FILE*, const char* fmt, ...);
 #define YYFPRINTF px_trace_printf
+/* When yacc.c output is compiled as C++ with a custom location type, the
+   skeleton cannot relocate its stacks, so the initial depth (default 200) is
+   the effective nesting limit. Allocate the documented maximum up front
+   (~90 KB of stack) so the limit is YYMAXDEPTH, not 200. */
 #define YYMAXDEPTH 5000
+#define YYINITDEPTH YYMAXDEPTH
 }
 
 %define api.pure full
@@ -496,6 +501,8 @@ static int yylex(YYSTYPE* lval, PxLoc* lloc, parallax::ParseCtx* ctx) {
 }
 
 static int yyreport_syntax_error(const yypcontext_t* yyctx, parallax::ParseCtx* ctx) {
+  /* In stop-at-first mode, recovery may still reach EOF and report again. */
+  if (ctx->stop_at_first && !ctx->result->diagnostics.empty()) return 0;
   parallax::SyntaxDiagnostic d;
   const PxLoc* loc = yypcontext_location(yyctx);
   d.token_index = loc->b;

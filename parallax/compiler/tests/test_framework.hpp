@@ -4,7 +4,16 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <vector>
+
+#include "parallax/ast.hpp"
+#include "parallax/token.hpp"
+
+namespace parallax {
+inline std::ostream& operator<<(std::ostream& os, TokenKind k) { return os << token_kind_name(k); }
+inline std::ostream& operator<<(std::ostream& os, NodeKind k) { return os << node_kind_name(k); }
+}  // namespace parallax
 
 namespace pxtest {
 struct Case {

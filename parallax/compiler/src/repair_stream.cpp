@@ -121,7 +121,8 @@ std::string reconstruct_source(const std::string& original, const std::vector<To
   int last = -1;          // last original token index whose lead was handled
   std::string carry;      // newline-bearing lead of a deleted token
 
-  bool deleted_before = false;  // a deleted token sits just before the next original
+  bool deleted_before = false;
+  bool glue_next = false;  // last emitted token was a synthetic '(' or '['  // a deleted token sits just before the next original
   auto skip_deleted_until = [&](int j) {
     deleted_before = false;
     for (int k = last + 1; k < j; ++k) {
@@ -139,12 +140,15 @@ std::string reconstruct_source(const std::string& original, const std::vector<To
       const int j = t.origin;
       skip_deleted_until(j);
       if (!carry.empty() && !has_newline(lead[j])) out += carry;
-      else if (deleted_before && attaches_left(t.kind) && blank(lead[j])) {
+      else if (glue_next && blank(lead[j])) {
+        // an inserted '(' or '[' hugs the token that follows it
+      } else if (deleted_before && attaches_left(t.kind) && blank(lead[j])) {
         // "w * ;" minus "*" reads "w;" rather than "w ;"
       } else out += lead[j];
       carry.clear();
       append_token(out, t.lexeme);
       last = j;
+      glue_next = false;
     } else {
       // Synthetic token (or an original token re-used out of order, which
       // the engine never produces; treated as synthetic for safety).
@@ -154,6 +158,7 @@ std::string reconstruct_source(const std::string& original, const std::vector<To
         if (!out.empty() && out.back() != ' ' && out.back() != '\n' && out.back() != '\t') out += ' ';
         append_token(out, t.lexeme);
       }
+      glue_next = t.kind == TokenKind::LParen || t.kind == TokenKind::LBracket;
     }
   }
   skip_deleted_until(n);

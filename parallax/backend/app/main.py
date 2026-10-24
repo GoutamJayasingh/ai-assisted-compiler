@@ -258,6 +258,7 @@ async def grammar_info():
     report = grammar.load_report(settings.parser_report)
     return {
         "grammar_source": grammar.grammar_rules_section(settings.grammar_file),
+        "lexer_source": grammar.grammar_rules_section(settings.lexer_file),
         "rules": report["rules"] if report else [],
         "states": len(report["states"]) if report else None,
         "report_available": report is not None,
@@ -271,6 +272,31 @@ async def grammar_state(number: int):
     if info is None:
         return error_response(404, "STATE_NOT_FOUND", f"No LR state {number} in the parser report.")
     return info
+
+
+# ------------------------------------------------------------------ docs
+DOCS_DIR = PARALLAX_ROOT / "docs"
+DOC_NAME = re.compile(r"^[A-Z0-9_]+$")
+
+
+@app.get("/api/docs")
+async def docs_index():
+    files = sorted(DOCS_DIR.glob("*.md")) if DOCS_DIR.is_dir() else []
+    out = [{"name": "README", "title": "README"}] if (PARALLAX_ROOT / "README.md").is_file() else []
+    for f in files:
+        first = f.read_text(encoding="utf-8").splitlines()[:1]
+        out.append({"name": f.stem, "title": first[0].lstrip("# ").strip() if first else f.stem})
+    return {"docs": out}
+
+
+@app.get("/api/docs/{name}")
+async def doc(name: str):
+    if not DOC_NAME.match(name):
+        return error_response(400, "INVALID_DOC_NAME", "Malformed document name.")
+    path = PARALLAX_ROOT / "README.md" if name == "README" else DOCS_DIR / f"{name}.md"
+    if not path.is_file():
+        return error_response(404, "DOC_NOT_FOUND", f"No document {name}.")
+    return {"name": name, "markdown": path.read_text(encoding="utf-8")}
 
 
 # ------------------------------------------------------------------ evaluation

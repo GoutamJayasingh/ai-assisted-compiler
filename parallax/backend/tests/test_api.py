@@ -303,3 +303,11 @@ def test_live_evaluation_small(client):
     assert 0 <= d["metrics"]["P"]["top1_ast"]["rate"] <= 1
     r = client.post("/api/evaluate", json={"limit": 1000})
     assert r.status_code == 422
+
+
+def test_docs_endpoints_reject_traversal(client):
+    assert client.get("/api/docs/..%2F..%2Fetc").status_code in (400, 404)
+    assert client.get("/api/docs/lower").status_code == 400
+    idx = client.get("/api/docs").json()["docs"]
+    for d in idx[:3]:
+        assert client.get(f"/api/docs/{d['name']}").status_code == 200

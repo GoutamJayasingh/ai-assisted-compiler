@@ -23,6 +23,7 @@ from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+from evaluation.baselines import cpctplus_adapter
 from evaluation.baselines.systems import BY_ID, REPAIR_SYSTEMS, SYSTEMS
 from evaluation.lib import compiler
 from evaluation.metrics.metrics import (
@@ -150,7 +151,53 @@ def localisation(case, idx, lines) -> dict:
     return {"exact": idx == site, "near": abs(idx - site) <= 1, "line": li == ls}
 
 
-def evaluate_split(cases, rows, tau) -> dict:
+# --------------------------------------------------------------- optional G
+def run_cpct(case: dict) -> dict:
+    """CPCT+ (nimbleparse) on one case; plans re-parsed by parallaxc."""
+    toks = compiler.run("lex", case["corrupted"], timeout=TIMEOUT_S)["tokens"]
+    try:
+        res = cpctplus_adapter.run(toks, timeout=TIMEOUT_S)
+    except Exception as exc:  # noqa: BLE001 - external tool, record and continue
+        return {"failure": f"{type(exc).__name__}: {exc}", "plans": [], "wall_ms": None}
+    plans = []
+    for lexemes in res["plans"]:
+        doc = compiler.run("analyze", " ".join(lexemes), timeout=TIMEOUT_S)
+        ok = "parse" in doc and doc["parse"]["ok"]
+        plans.append({"valid": ok, "ast_hash": doc["parse"].get("ast_hash") if ok else None,
+                      "tokens": lexemes})
+    anchor = None
+    if res["errors"] and res["errors"][0]["sequences"]:
+        seq = res["errors"][0]["sequences"][0]
+        shifts = 0
+        for op, _ in seq:
+            if op != "Shift":
+                break
+            shifts += 1
+        anchor = res["errors"][0]["token_index"] + shifts
+    return {"plans": plans, "anchor": anchor, "wall_ms": res["wall_ms"],
+            "n_errors_reported": len(res["errors"])}
+
+
+def evaluate_cpct(cases, rows_g, diag_rows) -> dict:
+    by_id = {r["id"]: r for r in rows_g}
+    dby = {r["id"]: r for r in diag_rows}
+    preds = [(c, by_id[c["id"]]) for c in cases]
+    t1 = [top1_ast(c, p) for c, p in preds]
+    loc = [localisation(c, p.get("anchor"), dby[c["id"]]["diag"]["token_lines"]) for c, p in preds]
+    return {
+        "top1_ast": proportion(t1),
+        "top1_exact": proportion([top1_exact(c, p) for c, p in preds]),
+        "top3_ast": proportion([topk_ast(c, p) for c, p in preds]),
+        "output_parser_valid": proportion([output_valid(p) for c, p in preds]),
+        "localisation_exact": proportion([l["exact"] for l in loc]),
+        "localisation_within_1": proportion([l["near"] for l in loc]),
+        "localisation_same_line": proportion([l["line"] for l in loc]),
+        "latency_ms": summary_stats(p.get("wall_ms") for c, p in preds),
+        "failures": sum(1 for c, p in preds if "failure" in p),
+    }
+
+
+def evaluate_split(cases, rows, tau, systems=None) -> dict:
     by_id = {r["id"]: r for r in rows}
     res = {}
     # Diagnostic baselines
@@ -175,7 +222,7 @@ def evaluate_split(cases, rows, tau) -> dict:
         "multi_error_all_reported": proportion([by_id[c["id"]]["diag"]["n_diagnostics"] >= c["n_errors"] for c in multi]),
         "localisation_same_line": res["A"]["localisation_same_line"],
     }
-    for s in REPAIR_SYSTEMS:
+    for s in (systems or REPAIR_SYSTEMS):
         sid = s["id"]
         preds = [(c, by_id[c["id"]][sid]) for c in cases]
         rec = [is_recommended(s, p, tau) for c, p in preds]
@@ -277,6 +324,7 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=0, help="evaluate only the first N cases (smoke runs)")
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2)))
     ap.add_argument("--out", type=Path, default=RESULTS)
+    ap.add_argument("--no-cpct", action="store_true", help="skip the optional CPCT+ baseline")
     ap.add_argument("--split", choices=["all", "dev"], default="all",
                     help="'dev' evaluates only the tuning split (used while developing the evidence model)")
     args = ap.parse_args()
@@ -314,7 +362,31 @@ def main() -> int:
         if direct == status_at_tau(p["status"], p["margin"], tau):
             agree += 1
 
+    cpct = None
+    status = cpctplus_adapter.availability()
+    if status["available"] and not args.no_cpct:
+        reps = []
+        for rep in range(2):  # CPCT+ breaks ties non-deterministically: two replicates
+            with ThreadPoolExecutor(max_workers=args.workers) as ex:
+                reps.append(list(ex.map(lambda c: {"id": c["id"], **run_cpct(c)}, cases)))
+        r0 = {r["id"]: r for r in reps[0]}
+        r1 = {r["id"]: r for r in reps[1]}
+        agree = [((r0[c["id"]]["plans"] or [{}])[0].get("ast_hash") == (r1[c["id"]]["plans"] or [{}])[0].get("ast_hash"))
+                 for c in cases]
+        cpct = {
+            "availability": status,
+            "replicates": 2,
+            "replicate_top1_agreement": proportion(agree),
+            "test": [evaluate_cpct(test, reps[k], rows) for k in range(2)] if test else None,
+            "dev": [evaluate_cpct(dev, reps[k], rows) for k in range(2)] if dev else None,
+            "note": "Real nimbleparse runs; wall time includes grammar loading and LR table construction "
+                    "on every invocation; CPCT+ never abstains.",
+        }
+    else:
+        cpct = {"availability": status if not args.no_cpct else {"available": False, "reason": "--no-cpct"}}
+
     summary = {
+        "cpctplus": cpct,
         "environment": environment(),
         "dataset": json.loads((ROOT / "dataset" / "manifest.json").read_text()),
         "n_cases": len(cases),

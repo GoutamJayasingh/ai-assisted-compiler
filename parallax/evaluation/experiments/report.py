@@ -96,6 +96,24 @@ def write_report(s: dict, path: Path) -> None:
                     L.append(f"- **{sys_['id']}**: {r[sys_['id']]['status_counts']}")
             L.append("")
 
+    cp = s.get("cpctplus") or {}
+    L.append("## Optional baseline G: CPCT+ (grmtools nimbleparse)\n")
+    if cp.get("test"):
+        L.append(f"Availability: {cp['availability']}. {cp['note']}\n")
+        L.append(f"Top-1 agreement between the two replicates (all cases): {pct(cp['replicate_top1_agreement'])}\n")
+        L.append("| Split / replicate | Top-1 AST match | Top-1 exact tokens | Top-3 AST match | Output parses | "
+                 "Localisation exact | Within 1 | Same line | Wall ms (mean / p95) |")
+        L.append("|---|---|---|---|---|---|---|---|---|")
+        for split in ("test", "dev"):
+            for k, m in enumerate(cp.get(split) or []):
+                L.append(f"| {split} #{k + 1} | {pct(m['top1_ast'])} | {pct(m['top1_exact'])} | {pct(m['top3_ast'])} | "
+                         f"{pct(m['output_parser_valid'])} | {pct(m['localisation_exact'])} | "
+                         f"{pct(m['localisation_within_1'])} | {pct(m['localisation_same_line'])} | "
+                         f"{num(m['latency_ms']['mean'])} / {num(m['latency_ms']['p95'])} |")
+        L.append("")
+    else:
+        L.append(f"Not run: {cp.get('availability', {}).get('reason', 'unknown')}\n")
+
     if s.get("paired_tests"):
         L.append("## Paired bootstrap differences (test split)\n")
         L.append("| Comparison | Mean difference | 95% CI |")

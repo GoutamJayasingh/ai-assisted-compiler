@@ -95,7 +95,7 @@ Development mode with hot reload: `./scripts/run_dev.sh` (API on :8000, Vite on 
 PARALLAX_E2E=1 ./scripts/test_all.sh        # also Playwright E2E (backend must run on :8000)
 ```
 
-Layers (latest run, see [`docs/TESTING.md`](docs/TESTING.md)): 66 C++ tests, 31 API tests, 71 evaluation tests (including 61 error-catalog cases), 23 frontend unit tests and 11 end-to-end checks, all passing.
+Layers (latest run, see [`docs/TESTING.md`](docs/TESTING.md)): 66 C++ tests, 32 API tests, 71 evaluation tests (including 61 error-catalog cases), 24 frontend unit tests and 12 end-to-end checks, all passing.
 
 ## Reproduce the evaluation
 

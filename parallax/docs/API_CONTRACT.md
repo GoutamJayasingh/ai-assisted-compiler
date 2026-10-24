@@ -1,6 +1,6 @@
 # API contract
 
-Base path `/api`. Every request and response body is JSON. The compiler JSON uses `schema_version: "1"`. Interactive OpenAPI docs: `http://127.0.0.1:8000/docs` (FastAPI).
+Base path `/api`. Every request and response body is JSON. The compiler JSON uses `schema_version: "1"`. Machine-readable schema: `GET /api/openapi.json`. Interactive Swagger UI: `/api/swagger` (an optional developer page; it loads Swagger's assets from a CDN, so it is the one page that needs network access).
 
 ## Envelope
 

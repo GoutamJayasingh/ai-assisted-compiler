@@ -34,8 +34,12 @@ MAX_BODY_BYTES = 1024 * 1024
 
 settings = get_settings()
 runner = CompilerRunner(settings)
+# FastAPI's interactive docs live under /api so they never shadow the UI's
+# /docs route. (Swagger UI loads its assets from a CDN; it is an optional
+# developer page and the only part that needs network access.)
 app = FastAPI(title="Parallax API", version=API_VERSION,
-              description="Evidence-ranked multi-hypothesis syntax repair for MiniC.")
+              description="Evidence-ranked multi-hypothesis syntax repair for MiniC.",
+              docs_url="/api/swagger", redoc_url=None, openapi_url="/api/openapi.json")
 app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins), allow_methods=["GET", "POST"],
                    allow_headers=["Content-Type"])
 

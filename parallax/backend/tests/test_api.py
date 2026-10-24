@@ -311,3 +311,20 @@ def test_docs_endpoints_reject_traversal(client):
     idx = client.get("/api/docs").json()["docs"]
     for d in idx[:3]:
         assert client.get(f"/api/docs/{d['name']}").status_code == 200
+
+
+def test_static_ui_never_serves_files_outside_dist(client):
+    dist = PARALLAX_ROOT / "frontend" / "dist"
+    if not dist.is_dir():
+        pytest.skip("frontend not built")
+    for path in ("/..%2F..%2Fbackend%2Fapp%2Fconfig.py", "/%2e%2e/%2e%2e/LICENSE", "/assets/../../LICENSE"):
+        r = client.get(path)
+        assert "Permission is hereby granted" not in r.text
+        assert "PARALLAX_COMPILER" not in r.text
+    assert client.get("/workbench").status_code == 200  # SPA fallback
+
+
+def test_ui_docs_route_is_not_shadowed_by_swagger(client):
+    r = client.get("/docs")
+    assert "swagger" not in r.text.lower()
+    assert client.get("/api/openapi.json").status_code == 200

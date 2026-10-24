@@ -55,3 +55,14 @@ describe("rulesFor", () => {
     expect(rulesFor(lexer, "NOPE")).toEqual([]);
   });
 });
+
+import { rewriteDocLinks } from "../../src/components/Markdown";
+describe("rewriteDocLinks", () => {
+  it("maps sibling Markdown docs to in-app routes", () => {
+    expect(rewriteDocLinks('<a href="docs/TESTING.md">t</a>')).toContain('href="/docs/TESTING"');
+    expect(rewriteDocLinks('<a href="RESULTS_AND_IMPACT.md#x">r</a>')).toContain('href="/docs/RESULTS_AND_IMPACT"');
+    expect(rewriteDocLinks('<a href="../README.md">r</a>')).toContain('href="/docs/README"');
+    expect(rewriteDocLinks('<a href="https://example.org/a.md">x</a>')).toContain("https://example.org/a.md");
+    expect(rewriteDocLinks('<a href="evaluation/results/report.md">r</a>')).toContain('class="repo-path"');
+  });
+});

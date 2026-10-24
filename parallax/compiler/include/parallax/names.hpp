@@ -1,6 +1,7 @@
 // Lightweight static name resolution over a complete AST.
 // This is NOT a type checker. It reports undeclared identifiers, duplicate
-// declarations in one scope and calls to non-functions, and is used (a) as
+// declarations in one scope, calls to non-functions and calls with the wrong
+// number of arguments, and is used (a) as
 // an informational pass for valid programs and (b) as one piece of repair
 // evidence: a repair that introduces new name errors is less plausible.
 #pragma once
@@ -13,7 +14,7 @@
 namespace parallax {
 
 struct NameWarning {
-  std::string kind;     // "undeclared", "duplicate", "not-a-function", "not-a-variable"
+  std::string kind;  // "undeclared", "duplicate", "not-a-function", "not-a-variable", "not-an-array", "arity"
   std::string name;
   std::string message;
   int tok_begin = 0;

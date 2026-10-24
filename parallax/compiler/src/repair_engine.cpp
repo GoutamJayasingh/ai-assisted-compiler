@@ -108,25 +108,47 @@ std::string describe_edits(const std::vector<Edit>& edits) {
   return s;
 }
 
-void count_mismatch(const Node* n, const std::vector<Token>& toks, int* total) {
+struct IndentCtx {
+  const std::vector<Token>& toks;
+  std::map<int, int> line_indent;  // line -> column of its first token
+};
+
+bool starts_line(const std::vector<Token>& toks, int i) {
+  return i == 0 || (i > 0 && i < static_cast<int>(toks.size()) && toks[i].start.line > toks[i - 1].end.line);
+}
+
+void count_mismatch(const Node* n, const IndentCtx& cx, int* total) {
+  const auto& toks = cx.toks;
+  const int sz = static_cast<int>(toks.size());
   if (n->kind == NodeKind::Block || n->kind == NodeKind::Program) {
+    // (1) statements that start a line share one column within a block
     int ref = -1;
     for (const Node* c : n->children) {
       int b = c->tok_begin;
-      if (b <= 0 || b >= static_cast<int>(toks.size())) continue;
-      if (toks[b].start.line == toks[b - 1].end.line) continue;  // not first on its line
+      if (b <= 0 || b >= sz || !starts_line(toks, b)) continue;
       if (ref < 0) ref = toks[b].start.column;
       else if (toks[b].start.column != ref) (*total)++;
     }
+    // (2) a closing brace that starts a line aligns with the line that
+    //     opened the block
+    if (n->kind == NodeKind::Block && n->tok_begin >= 0 && n->tok_end - 1 < sz && n->tok_end > n->tok_begin &&
+        toks[n->tok_begin].kind == TokenKind::LBrace && toks[n->tok_end - 1].kind == TokenKind::RBrace &&
+        starts_line(toks, n->tok_end - 1)) {
+      auto it = cx.line_indent.find(toks[n->tok_begin].start.line);
+      if (it != cx.line_indent.end() && toks[n->tok_end - 1].start.column != it->second) (*total)++;
+    }
   }
-  for (const Node* c : n->children) count_mismatch(c, toks, total);
+  for (const Node* c : n->children) count_mismatch(c, cx, total);
 }
 
 }  // namespace
 
 int indentation_mismatches(const Node* root, const std::vector<Token>& toks) {
+  IndentCtx cx{toks, {}};
+  for (const Token& t : toks)
+    if (!cx.line_indent.count(t.start.line)) cx.line_indent[t.start.line] = t.start.column;
   int total = 0;
-  if (root) count_mismatch(root, toks, &total);
+  if (root) count_mismatch(root, cx, &total);
   return total;
 }
 
@@ -205,7 +227,6 @@ class Engine {
       if (ind.count(prev_line) && s[p].start.column > ind[prev_line]) return "indentation-brace";
     }
     if (e.op == EditOp::Insert && e.kind == TokenKind::RBrace) {
-      if (p == sz) return "indentation-brace";
       if (p > 0 && first_on_line(s, p)) {
         auto ind = line_indents(s);
         int prev_line = s[p - 1].start.line;
@@ -336,6 +357,19 @@ class Engine {
           close++;
         }
       }
+      // Doubled delimiters ("{{", "))", ",,") further back than the window.
+      int dups = 0;
+      for (int p = e - cfg_.window_back - 1; p >= std::max(1, e - cfg_.layout_reach) && !R_.budget.exhausted; --p) {
+        if (dups >= cfg_.max_layout_positions) break;
+        TokenKind k = s[p].kind;
+        bool delim = k == TokenKind::LBrace || k == TokenKind::RBrace || k == TokenKind::LParen ||
+                     k == TokenKind::RParen || k == TokenKind::Comma || k == TokenKind::LBracket ||
+                     k == TokenKind::RBracket;
+        if (!delim || s[p - 1].kind != k || s[p].origin < 0) continue;
+        add({make_edit(s, EditOp::Delete, p, TokenKind::Semi, "duplicate")}, s);
+        (*singles)++;
+        dups++;
+      }
     }
 
     // Cost-2 search (iterative deepening on cost): only when no single edit
@@ -455,7 +489,12 @@ class Engine {
         if (ed.support == "indentation-brace") brace++;
         if (ed.support == "duplicate-deletion") dup++;
       }
-      int dist = std::min(cfg_.distance_cap, std::abs(e - c.edits.front().pos));
+      // Layout-generated edits are far from the detection point by design and
+      // carry their own evidence, so the distance prior applies only to
+      // edits proposed by the local window / pair search.
+      const Edit& first = c.edits.front();
+      bool local_gen = first.generator == "window" || first.generator == "pair";
+      int dist = local_gen ? std::min(cfg_.distance_cap, std::abs(e - first.pos)) : 0;
       add_ev(c, "edit_cost", "edit", c.cost, cfg_.w_cost,
              "total edit cost (insert 1, delete 1, replace 1.5)");
       add_ev(c, "resolves_all_errors", "parser", c.valid ? 1 : 0, cfg_.w_resolves_all,
@@ -467,7 +506,7 @@ class Engine {
              "user-written names, literals or keywords removed or overwritten");
       add_ev(c, "distance_from_error", "parser", dist, cfg_.w_distance,
              "token distance between the edit and the parser's detection point (capped at " +
-                 std::to_string(cfg_.distance_cap) + ")");
+                 std::to_string(cfg_.distance_cap) + "; not applied to layout-generated edits)");
       add_ev(c, "line_end_semicolon", "layout", semi, cfg_.w_line_end_semicolon,
              "';' inserted exactly at a line break");
       add_ev(c, "indentation_brace", "layout", brace, cfg_.w_indentation_brace,
@@ -809,7 +848,7 @@ class Engine {
       if (bl >= 0) D.top_plans.push_back(bl);
       else if (k == 0) break;  // the best class has no plan: nothing to recommend
     }
-    if (unsupported) {
+    if (unsupported && cfg_.abstention) {
       D.status = "UNSUPPORTED_CONSTRUCT";
       D.summary = R.lexed.tokens[R.error_index].message;
       D.reasons.push_back("the first error is a C construct that MiniC deliberately does not support; "

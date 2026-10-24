@@ -29,7 +29,7 @@ struct RepairConfig {
   int min_progress = 3;     // tokens that must parse after the last edit
   int max_edits = 2;        // edits per repair step (cost-2 search only if needed)
   int max_pair_seeds = 12;  // single edits extended into pairs
-  int layout_reach = 40;    // tokens scanned backwards by layout generators
+  int layout_reach = 60;    // tokens scanned backwards by layout generators
   int max_layout_positions = 6;
 
   int lane_roots = 3;   // root hypotheses explored

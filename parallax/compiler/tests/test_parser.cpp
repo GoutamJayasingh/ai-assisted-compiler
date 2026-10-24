@@ -284,3 +284,11 @@ TEST(names_scopes_and_placeholders) {
   auto ws = check_names(r.root);
   CHECK_EQ(ws.size(), 2u);  // t and i are out of scope; __hole is ignored
 }
+
+TEST(names_detect_call_arity_mismatch) {
+  ParseResult r = parse("int f(int a, int b) { return a; }\nint main() { return f(1) + f(1, 2) + f(1 + 2); }");
+  CHECK(r.ok());
+  int arity = 0;
+  for (const auto& w : check_names(r.root)) arity += w.kind == "arity";
+  CHECK_EQ(arity, 2);
+}

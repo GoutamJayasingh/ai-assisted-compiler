@@ -16,8 +16,13 @@ class Resolver {
   void program(const Node* p) {
     push();
     // Functions are hoisted: visible everywhere.
-    for (const Node* d : p->children)
-      if (d->kind == NodeKind::Function) declare(d->name, SymKind::Function, d);
+    for (const Node* d : p->children) {
+      if (d->kind != NodeKind::Function) continue;
+      declare(d->name, SymKind::Function, d);
+      int params = 0;
+      for (const Node* c : d->children) params += c->kind == NodeKind::Param;
+      if (!arity_.count(d->name)) arity_[d->name] = params;
+    }
     for (const Node* d : p->children) {
       if (d->kind == NodeKind::Function) function(d);
       else if (d->kind == NodeKind::DeclStmt) decl(d);
@@ -27,6 +32,7 @@ class Resolver {
 
  private:
   std::vector<std::map<std::string, SymKind>> scopes_;
+  std::map<std::string, int> arity_;  // function name -> parameter count
 
   void push() { scopes_.emplace_back(); }
   void pop() { scopes_.pop_back(); }
@@ -153,6 +159,11 @@ class Resolver {
           if (!k) warn("undeclared", e->name, "function '" + e->name + "' is not defined", e);
           else if (*k != SymKind::Function)
             warn("not-a-function", e->name, "'" + e->name + "' is called but is not a function", e);
+          else if (arity_.count(e->name) && arity_[e->name] != static_cast<int>(e->children.size()))
+            warn("arity", e->name,
+                 "'" + e->name + "' expects " + std::to_string(arity_[e->name]) + " argument(s) but is called with " +
+                     std::to_string(e->children.size()),
+                 e);
         }
         for (const Node* a : e->children) expr(a);
         break;

@@ -76,7 +76,7 @@ bool token_kind_from_name(const std::string& name, TokenKind* out) {
 
 bool is_placeholder_kind(TokenKind k) {
   return k == TokenKind::Ident || k == TokenKind::IntLit || k == TokenKind::FloatLit ||
-         k == TokenKind::CharLit;
+         k == TokenKind::CharLit || k == TokenKind::KwTrue || k == TokenKind::KwFalse;
 }
 
 bool is_content_kind(TokenKind k) {

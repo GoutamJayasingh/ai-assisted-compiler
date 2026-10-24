@@ -121,11 +121,17 @@ std::string reconstruct_source(const std::string& original, const std::vector<To
   int last = -1;          // last original token index whose lead was handled
   std::string carry;      // newline-bearing lead of a deleted token
 
+  bool deleted_before = false;  // a deleted token sits just before the next original
   auto skip_deleted_until = [&](int j) {
+    deleted_before = false;
     for (int k = last + 1; k < j; ++k) {
+      deleted_before = true;
       if (has_comment(lead[k])) out += lead[k];
       else if (has_newline(lead[k]) && carry.empty()) carry = lead[k];
     }
+  };
+  auto blank = [](const std::string& s) {
+    return s.find_first_not_of(" \t") == std::string::npos;
   };
 
   for (const Token& t : stream) {
@@ -133,7 +139,9 @@ std::string reconstruct_source(const std::string& original, const std::vector<To
       const int j = t.origin;
       skip_deleted_until(j);
       if (!carry.empty() && !has_newline(lead[j])) out += carry;
-      else out += lead[j];
+      else if (deleted_before && attaches_left(t.kind) && blank(lead[j])) {
+        // "w * ;" minus "*" reads "w;" rather than "w ;"
+      } else out += lead[j];
       carry.clear();
       append_token(out, t.lexeme);
       last = j;

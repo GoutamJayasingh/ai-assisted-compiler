@@ -68,7 +68,7 @@ bool token_kind_from_name(const std::string& name, TokenKind* out);
 // Text inserted when a repair synthesises a token of this kind. Identifiers
 // and literals get explicit placeholders so invented content is visible.
 std::string synthetic_lexeme(TokenKind k);
-bool is_placeholder_kind(TokenKind k);   // Ident / literals
+bool is_placeholder_kind(TokenKind k);   // Ident / literals incl. true/false (invented content)
 bool is_content_kind(TokenKind k);       // user-authored content (names, literals, keywords)
 
 }  // namespace parallax

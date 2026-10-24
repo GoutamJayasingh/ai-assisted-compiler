@@ -272,3 +272,17 @@ TEST(repair_empty_input_is_valid) {
   RepairReport R = repair("");
   CHECK_EQ(R.decision.status, std::string("NO_REPAIR_NEEDED"));
 }
+
+TEST(repair_missing_comma_prefers_matching_arity) {
+  RepairReport R = repair("int add(int a, int b) {\n  return a + b;\n}\n\nint main() {\n  return add(1 2);\n}\n");
+  CHECK(plan_source(R).find("add(1, 2)") != std::string::npos);
+}
+
+TEST(repair_doubled_brace_far_from_detection_point) {
+  std::string src = "int main() {\n  int x = 0;\n  if (x > 0) {{\n    x = 1;\n  }\n  return x;\n}\n";
+  RepairReport R = repair(src);
+  bool found = false;
+  for (int i : R.ranked)
+    for (const Edit& e : R.candidates[i].edits) found |= e.generator == "duplicate";
+  CHECK(found);
+}

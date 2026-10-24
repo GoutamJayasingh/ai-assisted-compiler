@@ -18,3 +18,6 @@ frontend/playwright-report/
 .env.*
 .DS_Store
 evaluation/results/tmp/
+
+# The repository root .gitignore ignores lib/; Parallax has source in lib/ folders.
+!lib/
